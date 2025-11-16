@@ -439,6 +439,14 @@ def hvac_monitoring_thread():
             print(f"Error in HVAC monitoring: {e}")
             time.sleep(5)
 
+def calculate_oil_remaining():
+    """Calculate remaining oil percentage"""
+    pump_runtime_hours = state['pump_runtime_minutes'] / 60.0
+    oil_used_ml = pump_runtime_hours * state['oil_usage_rate_ml_per_hour']
+    oil_remaining_ml = max(0, state['oil_bottle_capacity_ml'] - oil_used_ml)
+    oil_percentage = (oil_remaining_ml / state['oil_bottle_capacity_ml'] * 100) if state['oil_bottle_capacity_ml'] > 0 else 0
+    return oil_percentage, oil_remaining_ml
+
 def control_thread_func():
     """Main control thread for diffuser operation"""
     hvac_detected = False
@@ -452,6 +460,20 @@ def control_thread_func():
         try:
             # Update runtime counters
             update_runtime_counters()
+            
+            # Check oil level - automatically disable if at 0%
+            oil_percentage, oil_remaining_ml = calculate_oil_remaining()
+            if oil_percentage <= 0 and state['enabled']:
+                # Oil depleted - automatically disable system
+                state['enabled'] = False
+                save_config()
+                if pump_on or fan_on:
+                    set_pump(False)
+                    set_fan(False)
+                    pump_on = False
+                    fan_on = False
+                    duty_cycle_start = None
+                print(f"System automatically disabled: Oil depleted (0% remaining, {oil_remaining_ml:.1f} ml)")
             
             # Check if system is enabled
             if not state['enabled']:
@@ -569,11 +591,10 @@ def get_status():
     """Get current system status"""
     update_runtime_counters()
     
-    # Calculate oil remaining
+    # Calculate oil remaining using helper function
+    oil_percentage, oil_remaining_ml = calculate_oil_remaining()
     pump_runtime_hours = state['pump_runtime_minutes'] / 60.0
     oil_used_ml = pump_runtime_hours * state['oil_usage_rate_ml_per_hour']
-    oil_remaining_ml = max(0, state['oil_bottle_capacity_ml'] - oil_used_ml)
-    oil_percentage = (oil_remaining_ml / state['oil_bottle_capacity_ml'] * 100) if state['oil_bottle_capacity_ml'] > 0 else 0
     
     status = state.copy()
     status['oil_remaining_ml'] = round(oil_remaining_ml, 1)

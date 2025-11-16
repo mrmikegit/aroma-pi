@@ -103,6 +103,9 @@ async function loadSettings() {
     }
 }
 
+// Track previous oil percentage to detect when it hits 0%
+let previousOilPercentage = 100;
+
 // Update status display
 function updateStatusDisplay(data) {
     // HVAC Status
@@ -124,6 +127,14 @@ function updateStatusDisplay(data) {
     const systemEnabled = document.getElementById('systemEnabled');
     systemEnabled.textContent = data.enabled ? 'Enabled' : 'Disabled';
     systemEnabled.className = 'status-value ' + (data.enabled ? 'on' : 'off');
+    
+    // Check if oil just hit 0% and system was automatically disabled
+    const currentOilPercentage = data.oil_percentage || 0;
+    if (previousOilPercentage > 0 && currentOilPercentage <= 0 && !data.enabled) {
+        // System was automatically disabled due to oil depletion
+        alert('⚠️ Oil depleted! System has been automatically disabled. Please refill the oil bottle and reset the counters.');
+    }
+    previousOilPercentage = currentOilPercentage;
     
     // Runtime counters
     document.getElementById('fanRuntime').textContent = 
