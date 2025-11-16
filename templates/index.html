@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oil Diffuser Control System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌿 Oil Diffuser Control System</h1>
+        </header>
+
+        <div class="main-content">
+            <!-- Control Panel -->
+            <section class="control-panel">
+                <h2>Control Panel</h2>
+                
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="enabled" onchange="updateEnabled()">
+                        <span>Enable Aroma System</span>
+                    </label>
+                </div>
+
+                <div class="control-group">
+                    <label for="dutyCycle">Intensity (On / Off):</label>
+                    <select id="dutyCycle" onchange="updateDutyCycle()">
+                        <option value="60s_240s">60s / 240s</option>
+                        <option value="60s_120s">60s / 120s</option>
+                        <option value="60s_90s">60s / 90s</option>
+                        <option value="60s_60s">60s / 60s</option>
+                        <option value="60s_45s">60s / 45s</option>
+                        <option value="60s_30s">60s / 30s</option>
+                        <option value="90s_30s">90s / 30s</option>
+                        <option value="120s_30s">120s / 30s</option>
+                        <option value="240s_30s">240s / 30s</option>
+                        <option value="360s_30s">360s / 30s</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="businessHours" onchange="updateBusinessHours()">
+                        <span>Enable Business Hours Only</span>
+                    </label>
+                </div>
+
+                <div class="control-group" id="businessHoursTimes" style="display: none;">
+                    <label for="businessStart">Start Time:</label>
+                    <input type="time" id="businessStart" value="09:00" onchange="updateBusinessHours()">
+                    
+                    <label for="businessEnd">End Time:</label>
+                    <input type="time" id="businessEnd" value="17:00" onchange="updateBusinessHours()">
+                </div>
+
+                <div class="control-group">
+                    <label for="oilUsageRate">Oil Usage Rate (ml/hr):</label>
+                    <input type="number" id="oilUsageRate" step="0.1" min="0" value="10.0" onchange="updateOilSettings()">
+                </div>
+
+                <div class="control-group">
+                    <label for="oilBottleCapacity">Bottle Capacity (ml):</label>
+                    <input type="number" id="oilBottleCapacity" step="1" min="0" value="500.0" onchange="updateOilSettings()">
+                </div>
+            </section>
+
+            <!-- Status Panel -->
+            <section class="status-panel">
+                <h2>System Status</h2>
+                
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">HVAC Fan:</span>
+                        <span class="status-value" id="hvacStatus">Unknown</span>
+                    </div>
+                    
+                    <div class="status-item">
+                        <span class="status-label">Air Pump:</span>
+                        <span class="status-value" id="pumpStatus">Unknown</span>
+                    </div>
+                    
+                    <div class="status-item">
+                        <span class="status-label">12V Fan:</span>
+                        <span class="status-value" id="fanStatus">Unknown</span>
+                    </div>
+                    
+                    <div class="status-item">
+                        <span class="status-label">System Enabled:</span>
+                        <span class="status-value" id="systemEnabled">Unknown</span>
+                    </div>
+                </div>
+
+                <div class="runtime-section">
+                    <h3>Runtime Counters</h3>
+                    <div class="runtime-grid">
+                        <div class="runtime-item">
+                            <span class="runtime-label">Fan Runtime:</span>
+                            <span class="runtime-value" id="fanRuntime">0.0</span>
+                            <span class="runtime-unit">minutes</span>
+                        </div>
+                    </div>
+                    
+                    <div class="fuel-gauge-container">
+                        <h4>Oil Level</h4>
+                        <div class="fuel-gauge">
+                            <div class="fuel-gauge-bar">
+                                <div class="fuel-gauge-fill" id="fuelGaugeFill"></div>
+                            </div>
+                            <div class="fuel-gauge-info">
+                                <span id="oilRemaining">0.0</span> ml remaining
+                                <span class="fuel-gauge-percentage" id="oilPercentage">(0%)</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="btn-reset" onclick="resetCounters()">Reset Counters</button>
+                </div>
+            </section>
+
+            <!-- Chart Panel -->
+            <section class="chart-panel">
+                <h2>HVAC Fan State - Last 24 Hours</h2>
+                <canvas id="hvacChart"></canvas>
+            </section>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+

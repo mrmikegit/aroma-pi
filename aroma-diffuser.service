@@ -1,0 +1,17 @@
+[Unit]
+Description=Oil Diffuser Control System
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/aroma
+ExecStart=/home/pi/aroma/venv/bin/python /home/pi/aroma/app.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
