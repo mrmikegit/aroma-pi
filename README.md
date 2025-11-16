@@ -145,12 +145,12 @@ To run the application automatically on boot, set up a systemd service:
 
 1. **Copy the service file to systemd directory:**
    ```bash
-   sudo cp aroma-diffuser.service /etc/systemd/system/
+   sudo cp aroma-pi.service /etc/systemd/system/
    ```
 
 2. **Edit the service file to match your setup (if needed):**
    ```bash
-   sudo nano /etc/systemd/system/aroma-diffuser.service
+   sudo nano /etc/systemd/system/aroma-pi.service
    ```
    
    Update the following if your paths are different:
@@ -161,29 +161,29 @@ To run the application automatically on boot, set up a systemd service:
 3. **Reload systemd and enable the service:**
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable aroma-diffuser.service
+   sudo systemctl enable aroma-pi.service
    ```
 
 4. **Start the service:**
    ```bash
-   sudo systemctl start aroma-diffuser.service
+   sudo systemctl start aroma-pi.service
    ```
 
 5. **Check service status:**
    ```bash
-   sudo systemctl status aroma-diffuser.service
+   sudo systemctl status aroma-pi.service
    ```
 
-6. **View service logs:**
+6. **View service logs (to debug GPIO issues):**
    ```bash
-   sudo journalctl -u aroma-diffuser.service -f
+   sudo journalctl -u aroma-pi.service -f
    ```
 
 **Useful commands:**
-- Stop the service: `sudo systemctl stop aroma-diffuser.service`
-- Restart the service: `sudo systemctl restart aroma-diffuser.service`
-- Disable auto-start: `sudo systemctl disable aroma-diffuser.service`
-- Check if service is enabled: `sudo systemctl is-enabled aroma-diffuser.service`
+- Stop the service: `sudo systemctl stop aroma-pi.service`
+- Restart the service: `sudo systemctl restart aroma-pi.service`
+- Disable auto-start: `sudo systemctl disable aroma-pi.service`
+- Check if service is enabled: `sudo systemctl is-enabled aroma-pi.service`
 
 ## File Structure
 
