@@ -155,8 +155,8 @@ To run the application automatically on boot, set up a systemd service:
    
    Update the following if your paths are different:
    - `User=pi` - Change to your username if different
-   - `WorkingDirectory=/home/pi/aroma` - Change to your actual path
-   - `ExecStart=/home/pi/aroma/venv/bin/python` - Change to your venv path
+   - `WorkingDirectory=/home/pi/aroma-pi` - Change to your actual path
+   - `ExecStart=/home/pi/aroma-pi/venv/bin/python` - Change to your venv path
 
 3. **Reload systemd and enable the service:**
    ```bash

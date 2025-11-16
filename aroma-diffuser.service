@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/aroma
-ExecStart=/home/pi/aroma/venv/bin/python /home/pi/aroma/app.py
+WorkingDirectory=/home/pi/aroma-pi
+ExecStart=/home/pi/aroma-pi/venv/bin/python /home/pi/aroma-pi/app.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
