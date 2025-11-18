@@ -317,8 +317,9 @@ async function registerServiceWorker() {
         return;
     }
     try {
-        swRegistration = await navigator.serviceWorker.register('/static/sw.js');
-        console.log('Service worker registered');
+        // Register from root scope
+        swRegistration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service worker registered with scope:', swRegistration.scope);
     } catch (error) {
         console.error('Service worker registration failed:', error);
     }
@@ -330,48 +331,72 @@ async function enableNotifications() {
         return;
     }
     if (!swRegistration) {
+        console.log('Service worker not ready, registering now...');
         await registerServiceWorker();
     }
     try {
+        console.log('Requesting notification permission...');
         const permission = await Notification.requestPermission();
+        console.log('Permission result:', permission);
+        
         if (permission !== 'granted') {
-            alert('Notifications permission was not granted.');
+            alert('Notifications permission was not granted. Current status: ' + permission);
             return;
         }
         await subscribeUser();
     } catch (error) {
         console.error('Error enabling notifications:', error);
-        alert('Failed to enable notifications.');
+        alert('Failed to enable notifications: ' + error.message);
     }
 }
 
 async function subscribeUser() {
-    if (!swRegistration) {
-        alert('Service worker not ready.');
-        return;
-    }
     try {
+        console.log('Fetching VAPID public key...');
         const response = await fetch('/api/vapid-public-key');
+        if (!response.ok) {
+            throw new Error(`Failed to fetch VAPID key: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         if (!data.publicKey) {
             throw new Error('Server did not provide a VAPID public key');
         }
+        console.log('VAPID key received');
+        
         const applicationServerKey = urlBase64ToUint8Array(data.publicKey);
+        
+        console.log('Subscribing to PushManager...');
         const subscription = await swRegistration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey
         });
-        await fetch('/api/subscribe', {
+        
+        console.log('Subscription object created:', JSON.stringify(subscription));
+        
+        console.log('Sending subscription to server...');
+        const subResponse = await fetch('/api/subscribe', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(subscription)
         });
-        alert('Notifications enabled successfully.');
+        
+        if (!subResponse.ok) {
+            throw new Error(`Server rejected subscription: ${subResponse.statusText}`);
+        }
+        
+        const result = await subResponse.json();
+        if (result.success) {
+            console.log('Server accepted subscription');
+            alert('Notifications enabled successfully!');
+        } else {
+            throw new Error(result.error || 'Unknown server error');
+        }
     } catch (error) {
-        console.error('Subscription failed:', error);
-        alert('Failed to subscribe for notifications.');
+        console.error('Subscription failed details:', error);
+        alert('Failed to subscribe: ' + error.message);
     }
 }
 
