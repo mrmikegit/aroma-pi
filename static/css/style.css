@@ -301,6 +301,53 @@ h3 {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.notification-controls {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 15px;
+    margin-top: 20px;
+}
+
+.notification-controls h3 {
+    margin: 0 0 10px 0;
+    color: #764ba2;
+}
+
+.notification-controls p {
+    font-size: 0.9em;
+    color: #6b7280;
+    margin-bottom: 12px;
+}
+
+.notification-controls button {
+    display: inline-block;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+    color: white;
+}
+
+#enablePushBtn {
+    background: #2563eb;
+}
+
+#enablePushBtn:hover {
+    background: #1d4ed8;
+}
+
+#testPushBtn {
+    background: #10b981;
+}
+
+#testPushBtn:hover {
+    background: #059669;
+}
+
 #hvacChart {
     max-height: 400px;
 }

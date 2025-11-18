@@ -8,9 +8,22 @@ import json
 import os
 import threading
 import time
+import base64
 from datetime import datetime, time as dt_time
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
+
+try:
+    from pywebpush import webpush, WebPushException
+    WEBPUSH_AVAILABLE = True
+except ImportError:
+    WEBPUSH_AVAILABLE = False
+    print("Warning: pywebpush not available. Push notifications disabled.")
+
+try:
+    from cryptography.hazmat.primitives.asymmetric import ec
+except ImportError:
+    ec = None
 
 # GPIO imports - use gpiozero for Pi 5 support, mock for development
 try:
@@ -132,6 +145,14 @@ GPIO_HVAC = 16      # HVAC blower fan state (LOW = on, HIGH = off)
 # Configuration file
 CONFIG_FILE = 'config.json'
 HISTORY_FILE = 'history.json'
+SUBSCRIPTIONS_FILE = 'subscriptions.json'
+VAPID_FILE = 'vapid.json'
+
+vapid_private_key = None
+vapid_public_key = None
+subscriptions = []
+SUBSCRIPTIONS_FILE = 'subscriptions.json'
+VAPID_FILE = 'vapid.json'
 
 # Duty cycle presets (on_time, off_time in seconds)
 DUTY_CYCLES = {
@@ -163,6 +184,7 @@ state = {
     'fan_runtime_minutes': 0,
     'last_pump_start': None,
     'last_fan_start': None,
+    'oil_alert_sent': False,
 }
 
 # Control flags
@@ -188,6 +210,103 @@ def load_config():
                 print(f"Loaded config: {saved_state}")
         except Exception as e:
             print(f"Error loading config: {e}")
+    # Ensure new keys exist
+    if 'oil_alert_sent' not in state:
+        state['oil_alert_sent'] = False
+
+def base64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
+
+def generate_vapid_keys():
+    """Generate new VAPID key pair"""
+    if ec is None:
+        raise RuntimeError("cryptography package is required to generate VAPID keys")
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    private_number = private_key.private_numbers().private_value.to_bytes(32, 'big')
+    public_key = private_key.public_key()
+    numbers = public_key.public_numbers()
+    x = numbers.x.to_bytes(32, 'big')
+    y = numbers.y.to_bytes(32, 'big')
+    public_key_bytes = b'\x04' + x + y
+    return {
+        "privateKey": base64url_encode(private_number),
+        "publicKey": base64url_encode(public_key_bytes)
+    }
+
+def load_vapid_keys():
+    """Load or generate VAPID keys for push notifications"""
+    global vapid_private_key, vapid_public_key
+    if os.path.exists(VAPID_FILE):
+        try:
+            with open(VAPID_FILE) as f:
+                data = json.load(f)
+                vapid_private_key = data.get('privateKey')
+                vapid_public_key = data.get('publicKey')
+                if vapid_private_key and vapid_public_key:
+                    print("Loaded VAPID keys")
+                    return
+        except Exception as e:
+            print(f"Error loading VAPID keys: {e}")
+    if WEBPUSH_AVAILABLE:
+        try:
+            keys = generate_vapid_keys()
+            vapid_private_key = keys['privateKey']
+            vapid_public_key = keys['publicKey']
+            with open(VAPID_FILE, 'w') as f:
+                json.dump(keys, f, indent=2)
+            print("Generated new VAPID keys")
+        except Exception as e:
+            print(f"Error generating VAPID keys: {e}")
+    else:
+        print("VAPID keys unavailable (pywebpush missing)")
+
+def load_subscriptions():
+    """Load push subscriptions"""
+    global subscriptions
+    if os.path.exists(SUBSCRIPTIONS_FILE):
+        try:
+            with open(SUBSCRIPTIONS_FILE) as f:
+                subscriptions = json.load(f)
+                print(f"Loaded {len(subscriptions)} subscriptions")
+        except Exception as e:
+            print(f"Error loading subscriptions: {e}")
+            subscriptions = []
+
+def save_subscriptions():
+    """Persist push subscriptions"""
+    try:
+        with open(SUBSCRIPTIONS_FILE, 'w') as f:
+            json.dump(subscriptions, f)
+    except Exception as e:
+        print(f"Error saving subscriptions: {e}")
+
+def send_push_notification(title, body):
+    """Send push notification to all subscribers"""
+    if not WEBPUSH_AVAILABLE or not vapid_private_key or not vapid_public_key:
+        return
+    if not subscriptions:
+        return
+    message = json.dumps({"title": title, "body": body, "url": "/"})
+    to_remove = []
+    for sub in subscriptions:
+        try:
+            webpush(
+                subscription_info=sub,
+                data=message,
+                vapid_private_key=vapid_private_key,
+                vapid_claims={"sub": "mailto:admin@example.com"}
+            )
+        except WebPushException as ex:
+            if ex.response is not None and ex.response.status_code in (404, 410):
+                to_remove.append(sub)
+            print(f"Push error: {ex}")
+        except Exception as e:
+            print(f"Push error: {e}")
+    if to_remove:
+        for sub in to_remove:
+            if sub in subscriptions:
+                subscriptions.remove(sub)
+        save_subscriptions()
 
 def save_config():
     """Save configuration to file"""
@@ -463,17 +582,29 @@ def control_thread_func():
             
             # Check oil level - automatically disable if at 0%
             oil_percentage, oil_remaining_ml = calculate_oil_remaining()
-            if oil_percentage <= 0 and state['enabled']:
-                # Oil depleted - automatically disable system
-                state['enabled'] = False
-                save_config()
-                if pump_on or fan_on:
-                    set_pump(False)
-                    set_fan(False)
-                    pump_on = False
-                    fan_on = False
-                    duty_cycle_start = None
-                print(f"System automatically disabled: Oil depleted (0% remaining, {oil_remaining_ml:.1f} ml)")
+            if oil_percentage <= 0:
+                if not state.get('oil_alert_sent'):
+                    state['oil_alert_sent'] = True
+                    save_config()
+                    send_push_notification(
+                        "Aroma System",
+                        "Oil tank is empty. The system has been disabled until it is refilled."
+                    )
+                if state['enabled']:
+                    # Oil depleted - automatically disable system
+                    state['enabled'] = False
+                    save_config()
+                    if pump_on or fan_on:
+                        set_pump(False)
+                        set_fan(False)
+                        pump_on = False
+                        fan_on = False
+                        duty_cycle_start = None
+                    print(f"System automatically disabled: Oil depleted (0% remaining, {oil_remaining_ml:.1f} ml)")
+            else:
+                if state.get('oil_alert_sent'):
+                    state['oil_alert_sent'] = False
+                    save_config()
             
             # Check if system is enabled
             if not state['enabled']:
@@ -611,6 +742,34 @@ def get_history():
                      if ts.timestamp() > cutoff]
     return jsonify(recent_history)
 
+@app.route('/api/vapid-public-key')
+def get_vapid_public_key():
+    """Return VAPID public key for push subscriptions"""
+    if not WEBPUSH_AVAILABLE or not vapid_public_key:
+        return jsonify({'error': 'Push notifications not configured'}), 503
+    return jsonify({'publicKey': vapid_public_key})
+
+@app.route('/api/subscribe', methods=['POST'])
+def subscribe():
+    """Store push subscription"""
+    global subscriptions
+    if not WEBPUSH_AVAILABLE:
+        return jsonify({'error': 'Push not available on server'}), 503
+    subscription = request.json
+    if not subscription or 'endpoint' not in subscription:
+        return jsonify({'error': 'Invalid subscription'}), 400
+    if subscription not in subscriptions:
+        subscriptions.append(subscription)
+        save_subscriptions()
+        print(f"New push subscription ({len(subscriptions)} total)")
+    return jsonify({'success': True})
+
+@app.route('/api/test_notification', methods=['POST'])
+def test_notification():
+    """Send test notification to all subscribers"""
+    send_push_notification("Aroma System Test", "This is a test notification from the control panel.")
+    return jsonify({'success': True})
+
 @app.route('/api/duty_cycles')
 def get_duty_cycles():
     """Get available duty cycles"""
@@ -666,6 +825,7 @@ def reset_counters():
     state['fan_runtime_minutes'] = 0
     state['last_pump_start'] = None
     state['last_fan_start'] = None
+    state['oil_alert_sent'] = False
     save_config()
     return jsonify({'success': True})
 
@@ -673,6 +833,8 @@ if __name__ == '__main__':
     # Initialize
     load_config()
     load_history()
+    load_vapid_keys()
+    load_subscriptions()
     init_gpio()
     start_threads()
     

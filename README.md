@@ -12,6 +12,7 @@ A web-based control system for a waterless oil diffuser connected to an HVAC sys
 - **Runtime Tracking**: Monitors and displays total runtime for pump and fan
 - **Historical Chart**: 24-hour visualization of HVAC fan state
 - **Persistent Settings**: All configurations saved and restored after reboot
+- **Push Alerts**: Optional web push notifications (including iOS via Add to Home Screen) when the oil tank is empty or via manual test button
 
 ## Hardware Requirements
 
@@ -56,6 +57,12 @@ A web-based control system for a waterless oil diffuser connected to an HVAC sys
    ```bash
    ./install_deps.sh
    ```
+    
+5. **Install Python dependencies:**
+   ```bash
+   ./venv/bin/pip install -r requirements.txt
+   ```
+   The requirements include `pywebpush` and `cryptography` for push notifications.
 
 5. **Install Python dependencies:**
    ```bash
@@ -184,6 +191,24 @@ To run the application automatically on boot, set up a systemd service:
 - Restart the service: `sudo systemctl restart aroma-pi.service`
 - Disable auto-start: `sudo systemctl disable aroma-pi.service`
 - Check if service is enabled: `sudo systemctl is-enabled aroma-pi.service`
+
+## Push Notifications
+
+The app can send web push notifications (including iOS 16.4+ web push when the site is added to the home screen). Notifications are triggered automatically when the oil tank reaches 0% and can be tested via the “Send Test Notification” button in the Control Panel.
+
+1. **HTTPS is required** (you already have this via Cloudflare Zero Trust tunnel). Browsers (especially iOS) only allow service workers and push notifications on secure origins.
+2. **Install to Home Screen on iOS**: After opening the site in Safari, tap share → “Add to Home Screen”. Push notifications only work for installed web apps on iOS.
+3. **Enable notifications in the UI**: Use the “Enable Notifications” button to grant permission and subscribe the current browser.
+4. **VAPID keys**: On first run the server automatically generates a `vapid.json` file. You can replace it with your own keys if desired.
+5. **Subscriptions**: Stored in `subscriptions.json`. If a device unregisters, stale subscriptions are removed automatically the next time a notification is sent.
+
+Push endpoints exposed by the server:
+
+- `GET /api/vapid-public-key` – returns the public VAPID key.
+- `POST /api/subscribe` – stores a new push subscription (called by the browser).
+- `POST /api/test_notification` – sends a test notification to all active subscribers.
+
+If you change domains or certificates, users must re-enable notifications so the browser can create a new subscription.
 
 ## File Structure
 

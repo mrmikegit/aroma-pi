@@ -2,6 +2,9 @@
 let statusInterval;
 let historyInterval;
 let hvacChart;
+let swRegistration = null;
+let pushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+let previousOilPercentage = 100;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -9,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSettings();
     startStatusUpdates();
     startHistoryUpdates();
+    registerServiceWorker();
 });
 
 // Initialize Chart.js for HVAC history
@@ -102,9 +106,6 @@ async function loadSettings() {
         console.error('Error loading settings:', error);
     }
 }
-
-// Track previous oil percentage to detect when it hits 0%
-let previousOilPercentage = 100;
 
 // Update status display
 function updateStatusDisplay(data) {
@@ -308,4 +309,97 @@ window.addEventListener('beforeunload', function() {
     if (statusInterval) clearInterval(statusInterval);
     if (historyInterval) clearInterval(historyInterval);
 });
+
+// --- Push Notification Helpers ---
+async function registerServiceWorker() {
+    if (!pushSupported) {
+        console.warn('Push notifications are not supported in this browser.');
+        return;
+    }
+    try {
+        swRegistration = await navigator.serviceWorker.register('/static/sw.js');
+        console.log('Service worker registered');
+    } catch (error) {
+        console.error('Service worker registration failed:', error);
+    }
+}
+
+async function enableNotifications() {
+    if (!pushSupported) {
+        alert('Push notifications are not supported on this device/browser.');
+        return;
+    }
+    if (!swRegistration) {
+        await registerServiceWorker();
+    }
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            alert('Notifications permission was not granted.');
+            return;
+        }
+        await subscribeUser();
+    } catch (error) {
+        console.error('Error enabling notifications:', error);
+        alert('Failed to enable notifications.');
+    }
+}
+
+async function subscribeUser() {
+    if (!swRegistration) {
+        alert('Service worker not ready.');
+        return;
+    }
+    try {
+        const response = await fetch('/api/vapid-public-key');
+        const data = await response.json();
+        if (!data.publicKey) {
+            throw new Error('Server did not provide a VAPID public key');
+        }
+        const applicationServerKey = urlBase64ToUint8Array(data.publicKey);
+        const subscription = await swRegistration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey
+        });
+        await fetch('/api/subscribe', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(subscription)
+        });
+        alert('Notifications enabled successfully.');
+    } catch (error) {
+        console.error('Subscription failed:', error);
+        alert('Failed to subscribe for notifications.');
+    }
+}
+
+async function sendTestNotification() {
+    try {
+        const response = await fetch('/api/test_notification', {
+            method: 'POST'
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert('Test notification sent.');
+        } else {
+            throw new Error(result.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Failed to send test notification:', error);
+        alert('Failed to send test notification.');
+    }
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
 
