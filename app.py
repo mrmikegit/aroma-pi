@@ -10,7 +10,7 @@ import threading
 import time
 import base64
 from datetime import datetime, time as dt_time
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 try:
@@ -717,6 +717,16 @@ def index():
     """Serve main page"""
     return render_template('index.html')
 
+@app.route('/sw.js')
+def service_worker():
+    """Serve service worker from root"""
+    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
+
+@app.route('/manifest.json')
+def manifest():
+    """Serve manifest from root"""
+    return send_from_directory('static', 'manifest.json', mimetype='application/json')
+
 @app.route('/api/status')
 def get_status():
     """Get current system status"""
@@ -757,11 +767,14 @@ def subscribe():
         return jsonify({'error': 'Push not available on server'}), 503
     subscription = request.json
     if not subscription or 'endpoint' not in subscription:
+        print("Error: Invalid subscription received")
         return jsonify({'error': 'Invalid subscription'}), 400
     if subscription not in subscriptions:
         subscriptions.append(subscription)
         save_subscriptions()
         print(f"New push subscription ({len(subscriptions)} total)")
+    else:
+        print("Received existing subscription")
     return jsonify({'success': True})
 
 @app.route('/api/test_notification', methods=['POST'])
