@@ -65,29 +65,35 @@ def main():
         # Initialize input device (HVAC state) - no pull resistor
         print(f"Initializing GPIO{GPIO_HVAC} as input with no pull resistor...")
         
-        # Configure the pin using lgpio directly with SET_BIAS_DISABLE
+        # First, configure the pin using lgpio directly
         import lgpio
         handle = lgpio.gpiochip_open(0)
         
-        # Claim GPIO16 as input with bias disabled (no internal pull-up or pull-down)
+        # Claim GPIO16 as input
+        lgpio.gpio_claim_input(handle, GPIO_HVAC)
+        
+        # Set GPIO16 to no pull resistor
         try:
-            lgpio.gpio_claim_input(handle, GPIO_HVAC, lgpio.SET_BIAS_DISABLE)
-            print(f"✓ GPIO{GPIO_HVAC} configured as input with SET_BIAS_DISABLE (no internal pull)")
+            lgpio.gpio_set_pull(handle, GPIO_HVAC, lgpio.SET_PULL_NONE)
+            print(f"✓ GPIO{GPIO_HVAC} configured with SET_PULL_NONE via lgpio")
         except AttributeError:
-            # Fallback if SET_BIAS_DISABLE doesn't exist - try older constants
+            # Try alternative function name if gpio_set_pull doesn't exist
             try:
-                # Try with numeric value (SET_BIAS_DISABLE = 0x80000)
-                lgpio.gpio_claim_input(handle, GPIO_HVAC, 0x80000)
-                print(f"✓ GPIO{GPIO_HVAC} configured as input with bias disabled (numeric flag)")
-            except Exception as e:
-                # Last resort: claim without flags
-                lgpio.gpio_claim_input(handle, GPIO_HVAC)
-                print(f"⚠ Could not disable internal pull resistor - {e}")
+                lgpio.gpio_set_pull_config(handle, GPIO_HVAC, lgpio.SET_PULL_NONE)
+                print(f"✓ GPIO{GPIO_HVAC} configured with SET_PULL_NONE via lgpio (alt method)")
+            except AttributeError:
+                print(f"⚠ Could not set pull resistor - using default configuration")
         
-        # We'll use lgpio directly for reading
-        gpio_hvac = None
+        # Now create InputDevice (without pull parameter since lgpio pin factory may not support it)
+        try:
+            gpio_hvac = InputDevice(GPIO_HVAC)
+            print("✓ InputDevice created successfully")
+        except Exception as e:
+            print(f"✗ Error creating InputDevice: {e}")
+            print("Will use lgpio directly for reading...")
+            gpio_hvac = None
         
-        # Store handle for direct reading
+        # Store handle for direct reading if needed
         lgpio_handle = handle
         
         print()

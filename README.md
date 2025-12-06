@@ -57,6 +57,33 @@ A web-based control system for a waterless oil diffuser connected to an HVAC sys
    ```
    (Log out and back in for this to take effect)
 
+5. **Configure GPIO16 pull resistor (required for HVAC detection):**
+   
+   GPIO16 has an internal pull-down resistor enabled by default. This must be disabled for the HVAC fan detection to work correctly.
+   
+   Edit the boot config file:
+   ```bash
+   sudo nano /boot/firmware/config.txt
+   ```
+   
+   Add this line at the end of the `[all]` section:
+   ```
+   gpio=16=ip,pn
+   ```
+   
+   This configures GPIO16 as an input (`ip`) with no pull resistor (`pn`).
+   
+   Save the file and reboot:
+   ```bash
+   sudo reboot
+   ```
+   
+   Verify the configuration after reboot:
+   ```bash
+   pinctrl get 16
+   ```
+   You should see `pn` (not `pd`) in the output, confirming no pull resistor is enabled.
+
 ## Usage
 
 1. **Start the application:**
