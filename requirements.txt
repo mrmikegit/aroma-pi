@@ -1,9 +1,5 @@
 Flask==3.0.0
 flask-cors==4.0.0
 gpiozero==1.6.2
-# Note: rpi-lgpio requires swig and python3-dev to build
-# Install with: sudo apt install swig python3-dev -y
-# Then: pip install rpi-lgpio
 pywebpush==1.14.0
 cryptography>=3.4.0
-

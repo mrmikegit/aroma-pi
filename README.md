@@ -27,61 +27,35 @@ A web-based control system for a waterless oil diffuser connected to an HVAC sys
 1. **Update system packages:**
    ```bash
    sudo apt update
-   sudo apt full-upgrade -y
+   sudo apt upgrade -y
    ```
 
-2. **Install Python and pip:**
+2. **Install system dependencies:**
    ```bash
    sudo apt install python3-pip python3-venv python3-gpiozero python3-lgpio -y
    ```
    
-   Note: `gpiozero` with `lgpio` backend is used for Raspberry Pi 5 compatibility.
-   The `lgpio` library is required for GPIO access on Raspberry Pi 5.
+   Note: `gpiozero` with the `lgpio` backend is required for Raspberry Pi 5 GPIO access.
 
-3. **Create virtual environment (required):**
+3. **Create virtual environment and install dependencies:**
    ```bash
-   python3 -m venv venv
-   ```
-
-4. **Install build dependencies for rpi-lgpio:**
-   ```bash
-   sudo apt install swig python3-dev build-essential -y
-   ```
+   # Create venv with system site packages (required for lgpio access)
+   python3 -m venv --system-site-packages venv
    
-   If available, also install the system package:
-   ```bash
-   sudo apt install python3-lgpio -y
+   # Install Python dependencies
+   ./venv/bin/pip install -r requirements.txt
    ```
    
    Or use the install script:
    ```bash
    ./install_deps.sh
    ```
-    
-5. **Install Python dependencies:**
-   ```bash
-   ./venv/bin/pip install -r requirements.txt
-   ```
-   The requirements include `pywebpush` and `cryptography` for push notifications.
 
-5. **Install Python dependencies:**
-   ```bash
-   ./venv/bin/pip install -r requirements.txt
-   ./venv/bin/pip install rpi-lgpio
-   ```
-   
-   Or activate the virtual environment first:
-   ```bash
-   source venv/bin/activate
-   pip install -r requirements.txt
-   pip install rpi-lgpio
-   ```
-
-6. **Set up GPIO permissions (if needed):**
+4. **Set up GPIO permissions (if needed):**
    ```bash
    sudo usermod -a -G gpio $USER
    ```
-   (You may need to log out and back in for this to take effect)
+   (Log out and back in for this to take effect)
 
 ## Usage
 
@@ -216,15 +190,25 @@ If you change domains or certificates, users must re-enable notifications so the
 aroma/
 ├── app.py              # Main Flask application
 ├── requirements.txt    # Python dependencies
+├── start.sh            # Start script
+├── install_deps.sh     # Dependency installation script
+├── aroma-pi.service    # systemd service file
 ├── config.json         # Saved settings (auto-generated)
 ├── history.json        # HVAC history data (auto-generated)
+├── vapid.json          # VAPID keys for push notifications (auto-generated)
+├── subscriptions.json  # Push notification subscriptions (auto-generated)
+├── test_hvac.py        # HVAC testing utility
+├── test_push.py        # Push notification testing utility
 ├── templates/
 │   └── index.html      # Web interface
 └── static/
     ├── css/
     │   └── style.css   # Stylesheet
-    └── js/
-        └── app.js      # Frontend JavaScript
+    ├── js/
+    │   └── app.js      # Frontend JavaScript
+    ├── sw.js           # Service worker for push notifications
+    ├── manifest.json   # Web app manifest
+    └── favicon.svg     # App icon
 ```
 
 ## API Endpoints
