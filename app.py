@@ -157,6 +157,9 @@ VAPID_FILE = 'vapid.json'
 # Duty cycle presets (on_time, off_time in seconds)
 DUTY_CYCLES = {
     '60s_240s': (60, 240),
+    '60s_210s': (60, 210),
+    '60s_180s': (60, 180),
+    '60s_150s': (60, 150),
     '60s_120s': (60, 120),
     '60s_90s': (60, 90),
     '60s_60s': (60, 60),
@@ -189,6 +192,7 @@ state = {
 
 # Control flags
 control_thread = None
+last_config_save_time = None  # Track last periodic config save
 monitoring_thread = None
 stop_flag = threading.Event()
 hvac_history = []  # List of (timestamp, state) tuples
@@ -336,7 +340,7 @@ def save_history():
                          if ts.timestamp() > cutoff]
         
         with open(HISTORY_FILE, 'w') as f:
-            json.dump(recent_history, f)
+            json.dump(recent_history, f, indent=2)
     except Exception as e:
         print(f"Error saving history: {e}")
 
@@ -579,6 +583,16 @@ def control_thread_func():
         try:
             # Update runtime counters
             update_runtime_counters()
+            
+            # Periodic config save (every 4 hours) to protect against power loss
+            global last_config_save_time
+            now = time.time()
+            if last_config_save_time is None:
+                last_config_save_time = now
+            elif now - last_config_save_time >= 4 * 3600:  # 4 hours in seconds
+                save_config()
+                last_config_save_time = now
+                print(f"Periodic config save completed at {datetime.now().isoformat()}")
             
             # Check oil level - automatically disable if at 0%
             oil_percentage, oil_remaining_ml = calculate_oil_remaining()
